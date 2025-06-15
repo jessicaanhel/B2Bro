@@ -43,7 +43,7 @@ def get_door_size(car_id, door_type):
 async def start_product_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("Введите модель машины (например: Mazda 3 2008):")
+    await query.message.reply_text("Enter a car model (for example: Mazda 3 2008):")
     return CHOOSING_MODEL
 
 async def handle_model_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -52,9 +52,9 @@ async def handle_model_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if not car:
         await update.message.reply_text(
-            "Машина с такими данными не найдена.\n"
-            "Пожалуйста, введи в формате: Марка Модель Год\n"
-            "Например: Mazda 3 2008"
+            "No car with this data found.\n"
+            "Please enter in the format: Make Model Year\n"
+            "For example: Mazda 3 2008"
         )
         return CHOOSING_MODEL
 
@@ -62,13 +62,13 @@ async def handle_model_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data['car_id'] = car_id
 
     keyboard = [
-        [InlineKeyboardButton("Передние двери", callback_data="front")],
-        [InlineKeyboardButton("Задние двери", callback_data="rear")]
+        [InlineKeyboardButton("Front door", callback_data="front")],
+        [InlineKeyboardButton("Rear door", callback_data="rear")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"Найдена машина: {make} {model} {year}. Выберите тип двери:",
+        f"Car found: {make} {model} {year}. Select door type:",
         reply_markup=reply_markup
     )
     return AWAITING_DOOR_SELECTION
@@ -82,23 +82,23 @@ async def door_button_handler(update, context):
     door_type = query.data
     car_id = context.user_data.get('car_id')
     if not car_id:
-        await query.edit_message_text("Ошибка. Начните заново командой /start")
+        await query.edit_message_text("Error. Start again with /start")
         return ConversationHandler.END
 
     size = get_door_size(car_id, door_type)
 
-    door_name = "Передние двери" if door_type == 'front' else "Задние двери"
-    text = f"{door_name}: {size}\n\nВыберите следующий вариант:"
+    door_name = "Front Doors" if door_type == 'front' else "Rear Doors"
+    text = f"{door_name}: {size}\n\nPlease select the next option:"
 
     if door_type == 'front':
         keyboard = [
-            [InlineKeyboardButton("Задние двери", callback_data="rear")],
-            [InlineKeyboardButton("Ввести модель заново", callback_data="restart_model")]
+            [InlineKeyboardButton("Rear Doors", callback_data="rear")],
+            [InlineKeyboardButton("Choose different car model", callback_data="restart_model")]
         ]
     else:
         keyboard = [
-            [InlineKeyboardButton("Передние двери", callback_data="front")],
-            [InlineKeyboardButton("Ввести модель заново", callback_data="restart_model")]
+            [InlineKeyboardButton("Front Doors", callback_data="front")],
+            [InlineKeyboardButton("Choose different car model", callback_data="restart_model")]
         ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -110,13 +110,13 @@ async def door_button_handler(update, context):
 async def restart_model_handler(update, context):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Введите модель машины (например: Mazda 3 2008):")
+    await query.edit_message_text("Enter a car model (for example: Mazda 3 2008):")
     return CHOOSING_MODEL
 
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Отмена.")
+    await update.message.reply_text("Cancel.")
     return ConversationHandler.END
 
 
