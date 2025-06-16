@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 *.db
+*.xlsx
 
 # C extensions
 *.so

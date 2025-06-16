@@ -3,6 +3,7 @@ from telegram.ext import ConversationHandler, MessageHandler, CallbackQueryHandl
 from db import CarSpeakerDB
 
 from constants import DB_PATH
+from telegram_handlers.helper import cancel
 
 CHOOSING_MODEL, CHOOSE_DOOR = range(2)
 AWAITING_DOOR_SELECTION = 11
@@ -109,13 +110,6 @@ async def restart_model_handler(update, context):
     await query.answer()
     await query.edit_message_text("Choose a car model (for example: Mazda 3 2008):")
     return CHOOSING_MODEL
-
-
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Cancel.")
-    return ConversationHandler.END
-
 
 conv_handler_product_picker = ConversationHandler(
     entry_points=[CallbackQueryHandler(start_product_selection, pattern="^pick_product$")],
