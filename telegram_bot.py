@@ -1,5 +1,6 @@
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 
+from telegram_handlers.ai_handler import conv_handler_ai_assistant
 from telegram_handlers.car_product_database_picker import conv_handler_product_picker
 from telegram_handlers.start_handler import start_command
 from constants import (
@@ -20,6 +21,7 @@ def main():
 
     # Add telegram_handlers for different workflows
     application.add_handler(conv_handler_product_picker)
+    application.add_handler(conv_handler_ai_assistant)
 
     application.run_polling()
 
