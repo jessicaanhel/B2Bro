@@ -1,28 +1,37 @@
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
+from fastapi import FastAPI, HTTPException, Query
+from db import CarSpeakerDB
+from constants import DB_PATH
 
-from handlers.car_product_database_picker import conv_handler_product_picker
-from handlers.start_handler import start_command
-from constants import (
-    TELEGRAM_BOT_TOKEN)
+app = FastAPI()
+db = CarSpeakerDB(DB_PATH)
 
+@app.get("/models/")
+def get_models(make: str = Query(..., description="Car make, e.g. 'audi'")):
+    models = db.get_models_by_make(make)
+    if not models:
+        raise HTTPException(status_code=404, detail=f"No models found for make '{make}'")
+    return {"make": make.lower(), "models": models}
 
-if TELEGRAM_BOT_TOKEN is not None:
-    print("Token is correct:" , TELEGRAM_BOT_TOKEN[-5:])
-else:
-    print("TELEGRAM_B2Bro_TOKEN is None")
+@app.get("/speaker-size/")
+def get_speaker_size(make: str, model: str, year: int):
+    make_model_year = f"{make} {model} {year}"
+    car = db.find_car(make_model_year)
 
-extended_function = True
+    if not car:
+        raise HTTPException(status_code=404, detail="Car not found")
 
+    car_id = car["id"]
+    front_door = db.get_door_size(car_id, 'front')
+    rear_door = db.get_door_size(car_id, 'rear')
 
-def main():
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start_command))
-
-    # Add handlers for different workflows
-    application.add_handler(conv_handler_product_picker)
-    
-    application.run_polling()
+    return {
+        "make": car["make"],
+        "model": car["model"],
+        "size_front_cm": front_door,
+        "size_rear_cm": rear_door,
+    }
 
 if __name__ == "__main__":
-    main()
+    db.debug_print_all()
+    data = []
+    db.add_no_duplicates(data)

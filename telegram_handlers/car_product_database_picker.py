@@ -1,44 +1,13 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ConversationHandler, MessageHandler, CallbackQueryHandler, filters, CommandHandler, ContextTypes
-import sqlite3
+from db import CarSpeakerDB
+
+from constants import DB_PATH
 
 CHOOSING_MODEL, CHOOSE_DOOR = range(2)
 AWAITING_DOOR_SELECTION = 11
 
-
-def find_car(make_model_year: str):
-    parts = make_model_year.strip().split()
-    if len(parts) < 3:
-        return None
-
-    make = parts[0].lower()
-    model = parts[1].lower()
-    try:
-        year = int(parts[2])
-    except ValueError:
-        return None
-
-    conn = sqlite3.connect('jbl_car_speakers.db')
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, make, model, year FROM car_speaker_sizes
-        WHERE LOWER(make) = ? AND LOWER(model) = ? AND year = ?
-    """, (make, model, year))
-    result = cursor.fetchone()
-    conn.close()
-    return result
-
-
-def get_door_size(car_id, door_type):
-    conn = sqlite3.connect('jbl_car_speakers.db')
-    cursor = conn.cursor()
-    if door_type == 'front':
-        cursor.execute("SELECT front_door_size FROM car_speaker_sizes WHERE id = ?", (car_id,))
-    else:
-        cursor.execute("SELECT rear_door_size FROM car_speaker_sizes WHERE id = ?", (car_id,))
-    size = cursor.fetchone()[0]
-    conn.close()
-    return size
+db = CarSpeakerDB(DB_PATH)
 
 async def start_product_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -48,30 +17,58 @@ async def start_product_selection(update: Update, context: ContextTypes.DEFAULT_
 
 async def handle_model_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
-    car = find_car(user_input)
+    parts = user_input.split()
 
-    if not car:
+    if len(parts) == 1:
+        # User entered only the make
+        make = parts[0].lower()
+        from db import CarSpeakerDB
+        db = CarSpeakerDB(DB_PATH)
+        models = db.get_models_by_make(make)
+
+        if not models:
+            await update.message.reply_text(
+                f"No models found for make '{make}'.\nTry again or enter full format: Make Model Year (e.g. Mazda 3 2008)"
+            )
+            return CHOOSING_MODEL
+
+        model_list = "\n".join(f"• {model.title()}" for model in models)
         await update.message.reply_text(
-            "No car with this data found.\n"
-            "Please enter in the format: Make Model Year\n"
-            "For example: Mazda 3 2008"
+            f"Models for '{make.title()}':\n\n{model_list}\n\nEnter a specific model and year like: {make.title()} 3 2008"
         )
         return CHOOSING_MODEL
 
-    car_id, make, model, year = car
-    context.user_data['car_id'] = car_id
+    elif len(parts) >= 3:
+        # User entered full make model year
+        car = find_car(user_input)
+        if not car:
+            await update.message.reply_text(
+                "No car with this data found.\n"
+                "Please enter in the format: Make Model Year\n"
+                "For example: Mazda 3 2008"
+            )
+            return CHOOSING_MODEL
 
-    keyboard = [
-        [InlineKeyboardButton("Front door", callback_data="front")],
-        [InlineKeyboardButton("Rear door", callback_data="rear")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+        car_id, make, model, year = car
+        context.user_data['car_id'] = car_id
 
-    await update.message.reply_text(
-        f"Car found: {make} {model} {year}. Select door type:",
-        reply_markup=reply_markup
-    )
-    return AWAITING_DOOR_SELECTION
+        keyboard = [
+            [InlineKeyboardButton("Front door", callback_data="front")],
+            [InlineKeyboardButton("Rear door", callback_data="rear")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await update.message.reply_text(
+            f"Car found: {make.title()} {model.title()} {year}. Select door type:",
+            reply_markup=reply_markup
+        )
+        return AWAITING_DOOR_SELECTION
+
+    else:
+        await update.message.reply_text(
+            "Invalid input. Please enter at least the make or the full format: Make Model Year"
+        )
+        return CHOOSING_MODEL
 
 
 
@@ -85,10 +82,10 @@ async def door_button_handler(update, context):
         await query.edit_message_text("Error. Start again with /start")
         return ConversationHandler.END
 
-    size = get_door_size(car_id, door_type)
+    size = db.get_door_size(car_id, door_type)
 
     door_name = "Front Doors" if door_type == 'front' else "Rear Doors"
-    text = f"{door_name}: {size}\n\nPlease select the next option:"
+    text = f"{door_name}: {size}"
 
     if door_type == 'front':
         keyboard = [
@@ -110,7 +107,7 @@ async def door_button_handler(update, context):
 async def restart_model_handler(update, context):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Enter a car model (for example: Mazda 3 2008):")
+    await query.edit_message_text("Choose a car model (for example: Mazda 3 2008):")
     return CHOOSING_MODEL
 
 
